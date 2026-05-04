@@ -48,7 +48,7 @@ public class CorrelationSpark {
                 .withColumn("corr", col("cov").divide(sqrt(col("varx").multiply(col("vary")))))
                 .select("datasourceid", "n", "corr")
                 .filter(col("n").geq(10))
-                .orderBy(desc(abs(col("corr"))));
+                .orderBy(abs(col("corr")).desc());
 
         perSensor.show(20, false);
         spark.stop();
