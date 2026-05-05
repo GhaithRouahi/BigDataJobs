@@ -1,0 +1,2 @@
+rowkey,pm25,no2,humidity,temp,lat,lon,location,sensor_name,datasourceid,time
+DFEAJ0038_2026-02-01T12_16_08.000,,,,,41.6642805,-87.5373633,"POINT (-87.5373633 41.6642805)","Hegewisch 2",DFEAJ0038,"2026-02-01T12:16:08.000"

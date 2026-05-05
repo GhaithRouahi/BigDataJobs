@@ -33,6 +33,13 @@ public class CsvToHBase {
         long limit = args.length >= 2 ? Long.parseLong(args[1]) : Long.MAX_VALUE;
 
         Configuration config = HBaseConfiguration.create();
+        // Allow overriding connection via env vars when running outside container
+        String zkQuorum = System.getenv().getOrDefault("HBASE_ZK_QUORUM", null);
+        String zkPort = System.getenv().getOrDefault("HBASE_ZK_PORT", null);
+        String znodeParent = System.getenv().getOrDefault("HBASE_ZNODE_PARENT", null);
+        if (zkQuorum != null && !zkQuorum.isEmpty()) config.set("hbase.zookeeper.quorum", zkQuorum);
+        if (zkPort != null && !zkPort.isEmpty()) config.set("hbase.zookeeper.property.clientPort", zkPort);
+        if (znodeParent != null && !znodeParent.isEmpty()) config.set("zookeeper.znode.parent", znodeParent);
         try (Connection connection = ConnectionFactory.createConnection(config);
              Admin admin = connection.getAdmin()) {
             TableName tableName = TableName.valueOf("chicago_outdoor_air_quality");
