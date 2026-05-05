@@ -29,6 +29,8 @@ public class DashboardServer {
         server.createContext("/api/per_sensor", (ex) -> respondJson(ex, readFirstCsv(resolveDirParam(ex, base, "/per_sensor"))));
         server.createContext("/api/daily", (ex) -> respondJson(ex, readFirstCsv(resolveDirParam(ex, base, "/daily"))));
         server.createContext("/api/anomalies", (ex) -> respondJson(ex, readFirstCsv(resolveDirParam(ex, base, "/anomalies"))));
+        // Rolling averages endpoint: expects a dir pointing to a folder with CSV (no fixed subfolder)
+        server.createContext("/api/rolling", (ex) -> respondJson(ex, readFirstCsv(resolveDirParam(ex, base, ""))));
         server.setExecutor(null);
         System.out.println("Dashboard running at http://localhost:" + port + " (base=" + base + ")");
         server.start();
@@ -57,25 +59,33 @@ public class DashboardServer {
     private static String readFirstCsv(String dirPath) throws IOException {
         Path dir = Paths.get(dirPath);
         if (!Files.exists(dir)) return "[]";
-        Optional<Path> file = Files.list(dir)
-                .filter(p -> p.getFileName().toString().endsWith(".csv") || p.getFileName().toString().startsWith("part-"))
-                .findFirst();
-        if (file.isEmpty()) return "[]";
-        List<String> lines = Files.readAllLines(file.get());
-        if (lines.isEmpty()) return "[]";
-        String header = lines.get(0);
-        String[] cols = Csv.split(header);
-        List<Map<String, String>> rows = new ArrayList<>();
-        for (int i = 1; i < lines.size(); i++) {
-            String[] vals = Csv.split(lines.get(i));
-            Map<String, String> obj = new LinkedHashMap<>();
-            for (int c = 0; c < Math.min(cols.length, vals.length); c++) {
-                obj.put(Csv.unquote(cols[c]), Csv.unquote(vals[c]));
+        List<Path> candidates = new ArrayList<Path>();
+        for (Path p : (Iterable<Path>) Files.list(dir)::iterator) {
+            String name = p.getFileName().toString();
+            if (name.endsWith(".csv") || name.startsWith("part-")) {
+                candidates.add(p);
             }
-            rows.add(obj);
-            if (rows.size() >= 1000) break; // cap
         }
-        return toJson(rows);
+        // Try the first non-empty candidate (has at least a header + 1 row)
+        for (Path p : candidates) {
+            List<String> lines = Files.readAllLines(p);
+            if (lines.size() > 1) {
+                String header = lines.get(0);
+                String[] cols = Csv.split(header);
+                List<Map<String, String>> rows = new ArrayList<Map<String, String>>();
+                for (int i = 1; i < lines.size(); i++) {
+                    String[] vals = Csv.split(lines.get(i));
+                    Map<String, String> obj = new LinkedHashMap<String, String>();
+                    for (int c = 0; c < Math.min(cols.length, vals.length); c++) {
+                        obj.put(Csv.unquote(cols[c]), Csv.unquote(vals[c]));
+                    }
+                    rows.add(obj);
+                    if (rows.size() >= 1000) break; // cap
+                }
+                return toJson(rows);
+            }
+        }
+        return "[]";
     }
 
     private static String toJson(List<Map<String, String>> rows) {
@@ -113,6 +123,9 @@ public class DashboardServer {
             "<div class=\\\"card\\\"><h3>Daily PM2.5/NO2 Averages</h3><canvas id=\\\"daily\\\"></canvas></div>" +
             "</div>" +
             "<div class=\\\"card\\\"><h3>Anomalies (first 50)</h3><pre id=\\\"anoms\\\"></pre></div>" +
+            "<div class=\\\"card\\\"><h3>Rolling 24h Averages <small>(sensor)</small></h3>" +
+            "<select id=\\\"sensorSel\\\" style=\\\"margin-bottom:8px\\\"></select>" +
+            "<canvas id=\\\"rolling\\\"></canvas></div>" +
             "<script>\n" +
             "const base = '${BASE}';\n" +
             "async function getJson(p){const r=await fetch(p);return await r.json()}\n" +
@@ -124,6 +137,21 @@ public class DashboardServer {
             " new Chart(document.getElementById('daily'),{type:'line',data:{labels:daily.map(x=>x.date),datasets:[{label:'PM2.5',data:daily.map(x=>+x.pm25_avg||0),borderColor:'#e67',fill:false},{label:'NO2',data:daily.map(x=>+x.no2_avg||0),borderColor:'#36c',fill:false}]}});\n" +
             " const an=await getJson('/api/anomalies?dir='+base);\n" +
             " document.getElementById('anoms').textContent=an.slice(0,50).map(x=>JSON.stringify(x)).join('\n');\n" +
+            " // Rolling averages: default dir 'rolling_out' on host; change ?dir= param to override\n" +
+            " const roll=await getJson('/api/rolling?dir='+'rolling_out');\n" +
+            " const sensors=[...new Set(roll.map(x=>x.datasourceid))];\n" +
+            " const sel=document.getElementById('sensorSel');\n" +
+            " sensors.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});\n" +
+            " function render(sensor){\n" +
+            "  const rows=roll.filter(r=>r.datasourceid===sensor).sort((a,b)=>new Date(a.time)-new Date(b.time));\n" +
+            "  const labels=rows.map(r=>r.time);\n" +
+            "  const pm=rows.map(r=>+r.rolling_pm25_24h||0);\n" +
+            "  const no2=rows.map(r=>+r.rolling_no2_24h||0);\n" +
+            "  if(window._rollChart) window._rollChart.destroy();\n" +
+            "  window._rollChart=new Chart(document.getElementById('rolling'),{type:'line',data:{labels:labels,datasets:[{label:'PM2.5 (24h)',data:pm,borderColor:'#e67',fill:false},{label:'NO2 (24h)',data:no2,borderColor:'#36c',fill:false}]}},{responsive:true,maintainAspectRatio:false});\n" +
+            " }\n" +
+            " if(sensors.length){sel.value=sensors[0];render(sensors[0]);}\n" +
+            " sel.addEventListener('change',()=>render(sel.value));\n" +
             "}\n" +
             "load();\n" +
             "</script></body></html>";
