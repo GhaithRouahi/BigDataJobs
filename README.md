@@ -6,7 +6,7 @@ Overview
   - Hadoop MapReduce (TP1): per-sensor averages; daily city averages.
   - Spark (TP2): per-sensor and daily summaries; anomaly detection.
   - HBase (TP4): CSV ingestion into `chicago_outdoor_air_quality` table.
-   - Extras: exceedances + hourly MR jobs, rolling averages + correlation in Spark, HBase query tools, and a lightweight dashboard.
+  - Extras: exceedances + hourly MR jobs, rolling averages in Spark, HBase query tools, and a lightweight dashboard.
 
 Build
 ```
@@ -37,8 +37,7 @@ spark-submit --class tn.insat.tp2.spark.ChicagoAirQualitySpark target/chicago-ai
 # 24h rolling averages per sensor
 spark-submit --class tn.insat.tp2.spark.RollingAveragesSpark target/chicago-air-quality-bigdata-1.0-SNAPSHOT-jar-with-dependencies.jar xfya-dxtq.csv out/rolling
 
-# PM2.5–NO2 correlation (overall + per sensor)
-spark-submit --class tn.insat.tp2.spark.CorrelationSpark target/chicago-air-quality-bigdata-1.0-SNAPSHOT-jar-with-dependencies.jar xfya-dxtq.csv
+```
 ```
 
 HBase Ingestion
