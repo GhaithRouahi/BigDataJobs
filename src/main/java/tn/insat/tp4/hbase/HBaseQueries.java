@@ -26,6 +26,13 @@ public class HBaseQueries {
             System.exit(1);
         }
         Configuration config = HBaseConfiguration.create();
+        // Allow overriding connection via env vars when running outside container
+        String zkQuorum = System.getenv().getOrDefault("HBASE_ZK_QUORUM", null);
+        String zkPort = System.getenv().getOrDefault("HBASE_ZK_PORT", null);
+        String znodeParent = System.getenv().getOrDefault("HBASE_ZNODE_PARENT", null);
+        if (zkQuorum != null && !zkQuorum.isEmpty()) config.set("hbase.zookeeper.quorum", zkQuorum);
+        if (zkPort != null && !zkPort.isEmpty()) config.set("hbase.zookeeper.property.clientPort", zkPort);
+        if (znodeParent != null && !znodeParent.isEmpty()) config.set("zookeeper.znode.parent", znodeParent);
         try (Connection connection = ConnectionFactory.createConnection(config)) {
             switch (args[0]) {
                 case "latest":
