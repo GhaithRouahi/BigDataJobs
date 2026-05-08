@@ -59,6 +59,43 @@ java -cp target/chicago-air-quality-bigdata-1.0-SNAPSHOT-jar-with-dependencies.j
 # Then open http://localhost:8080
 ```
 
+Run On Docker Container (all main classes)
+```
+# Assumes your project JARs are available in the container at /root/app.jar and /root/app-all.jar
+# Example copy step (from host):
+# docker cp target/chicago-air-quality-bigdata-1.0-SNAPSHOT.jar hadoop-master:/root/app.jar
+# docker cp target/chicago-air-quality-bigdata-1.0-SNAPSHOT-jar-with-dependencies.jar hadoop-master:/root/app-all.jar
+
+# TP1 - SensorAveragesJob
+docker exec -it hadoop-master bash -lc "hadoop jar /root/app.jar tn.insat.tp1.csv.SensorAveragesJob /root/xfya-dxtq.csv /root/out/sensor_averages"
+
+# TP1 - DailyCityAveragesJob
+docker exec -it hadoop-master bash -lc "hadoop jar /root/app.jar tn.insat.tp1.csv.DailyCityAveragesJob /root/xfya-dxtq.csv /root/out/daily_averages"
+
+# TP1 - HourlyAveragesJob
+docker exec -it hadoop-master bash -lc "hadoop jar /root/app.jar tn.insat.tp1.csv.HourlyAveragesJob /root/xfya-dxtq.csv /root/out/hourly_averages"
+
+# TP1 - SensorExceedanceJob
+docker exec -it hadoop-master bash -lc "hadoop jar /root/app.jar -Dpm25.threshold=35.4 -Dno2.threshold=100 tn.insat.tp1.csv.SensorExceedanceJob /root/xfya-dxtq.csv /root/out/exceedances"
+
+# TP2 - ChicagoAirQualitySpark
+docker exec -it hadoop-master bash -lc "spark-submit --class tn.insat.tp2.spark.ChicagoAirQualitySpark /root/app-all.jar /root/xfya-dxtq.csv /root/out/spark"
+
+# TP2 - RollingAveragesSpark
+docker exec -it hadoop-master bash -lc "spark-submit --class tn.insat.tp2.spark.RollingAveragesSpark /root/app-all.jar /root/xfya-dxtq.csv /root/out/rolling"
+
+# TP4 - CsvToHBase
+docker exec -it hadoop-master bash -lc "hbase org.apache.hadoop.util.RunJar /root/app.jar tn.insat.tp4.hbase.CsvToHBase /root/xfya-dxtq.csv 10000"
+
+# TP4 - HBaseQueries (examples)
+docker exec -it hadoop-master bash -lc "CP=\"$(hbase classpath)\"; java -cp /root/app.jar:$CP tn.insat.tp4.hbase.HBaseQueries count"
+docker exec -it hadoop-master bash -lc "CP=\"$(hbase classpath)\"; java -cp /root/app.jar:$CP tn.insat.tp4.hbase.HBaseQueries latest DIPDE7442"
+docker exec -it hadoop-master bash -lc "CP=\"$(hbase classpath)\"; java -cp /root/app.jar:$CP tn.insat.tp4.hbase.HBaseQueries exportDay 2026-02-01 /root/export-2026-02-01.csv"
+
+# DashboardServer
+docker exec -it hadoop-master bash -lc "java -cp /root/app-all.jar tn.insat.dashboard.DashboardServer 8080 /root/out/spark"
+```
+
 Notes
 - CSV columns referenced: datasourceid, time, pm2_5concmassindividual_value (PM2.5), no2concindividual_value (NO2), optional humidity/temperature/lat/lon.
 - Date extracted from time as yyyy-MM-dd.
